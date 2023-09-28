@@ -46,6 +46,7 @@ class BuiltinsChecker(object):
     assign_msg = 'A001 variable "{0}" is shadowing a python builtin'
     argument_msg = 'A002 argument "{0}" is shadowing a python builtin'
     class_attribute_msg = 'A003 class attribute "{0}" is shadowing a python builtin'
+    import_msg = 'A004 import statement "{0}" is shadowing a Python builtin'
 
     def __init__(self, tree, filename):
         self.tree = tree
@@ -241,8 +242,17 @@ class BuiltinsChecker(object):
 
     def check_import(self, statement):
         for name in statement.names:
-            if name.asname in BUILTINS:
-                yield self.error(statement, variable=name.asname)
+            collision = None
+            if name.name in BUILTINS and name.asname is None:
+                collision = name.name
+            elif name.asname in BUILTINS:
+                collision = name.asname
+            if collision:
+                yield self.error(
+                    statement,
+                    message=self.import_msg,
+                    variable=collision,
+                )
 
     def check_class(self, statement):
         if statement.name in BUILTINS:
