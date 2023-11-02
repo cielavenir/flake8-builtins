@@ -366,13 +366,21 @@ class TestBuiltins(unittest.TestCase):
         ret = [c for c in checker.run()]
         self.assertEqual(len(ret), 1)
 
+    def test_import(self):
+        tree = ast.parse(
+            'from numpy import max\n',
+        )
+        checker = BuiltinsChecker(tree, '/home/script.py')
+        ret = [c for c in checker.run()]
+        self.assert_codes(ret, ['A004'])
+
     def test_import_as(self):
         tree = ast.parse(
             'import zope.component.getSite as int\n',
         )
         checker = BuiltinsChecker(tree, '/home/script.py')
         ret = [c for c in checker.run()]
-        self.assertEqual(len(ret), 1)
+        self.assert_codes(ret, ['A004'])
 
     def test_import_from_as(self):
         tree = ast.parse(
@@ -380,11 +388,19 @@ class TestBuiltins(unittest.TestCase):
         )
         checker = BuiltinsChecker(tree, '/home/script.py')
         ret = [c for c in checker.run()]
-        self.assertEqual(len(ret), 1)
+        self.assert_codes(ret, ['A004'])
 
     def test_import_as_nothing(self):
         tree = ast.parse(
             'import zope.component.getSite as something_else\n',
+        )
+        checker = BuiltinsChecker(tree, '/home/script.py')
+        ret = [c for c in checker.run()]
+        self.assertEqual(len(ret), 0)
+
+    def test_import_collision_as_nothing(self):
+        tree = ast.parse(
+            'from numpy import max as non_shadowing_max\n',
         )
         checker = BuiltinsChecker(tree, '/home/script.py')
         ret = [c for c in checker.run()]
