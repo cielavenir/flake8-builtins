@@ -6,9 +6,20 @@ import inspect
 import sys
 if sys.version_info >= (3,0):
     import builtins
+    PY3 = True
 else:
     import __builtin__ as builtins
+    PY3 = False
 
+if sys.version_info >= (3, 6):
+    AnnAssign = ast.AnnAssign
+else:  # There was no `AnnAssign` before python3.6
+    AnnAssign = type('AnnAssign', (ast.AST,), {})
+
+if sys.version_info >= (3, 8):
+    NamedExpr = ast.NamedExpr
+else:  # There was no walrus operator before python3.8
+    NamedExpr = type('NamedExpr', (ast.AST,), {})
 
 class BuiltinsChecker:
     name = 'flake8_builtins'
@@ -87,7 +98,7 @@ class BuiltinsChecker:
 
         value = None
         for statement in ast.walk(tree):
-            if isinstance(statement, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+            if isinstance(statement, (ast.Assign, AnnAssign, NamedExpr)):
                 value = self.check_assignment(statement)
 
             elif isinstance(statement, function_nodes):
@@ -131,7 +142,7 @@ class BuiltinsChecker:
                 stack.extend(list(item.elts))
             elif isinstance(item, ast.Name) and item.id in self.names:
                 yield self.error(item, message=msg, variable=item.id)
-            elif isinstance(item, ast.Starred):
+            elif PY3 and isinstance(item, ast.Starred):
                 if hasattr(item.value, 'id') and item.value.id in self.names:
                     yield self.error(
                         statement,
@@ -149,18 +160,23 @@ class BuiltinsChecker:
 
             yield self.error(statement, message=msg, variable=statement.name)
 
-        all_arguments = []
-        all_arguments.extend(statement.args.args)
-        all_arguments.extend(getattr(statement.args, 'kwonlyargs', []))
-        all_arguments.extend(getattr(statement.args, 'posonlyargs', []))
+        if PY3:
+            all_arguments = []
+            all_arguments.extend(statement.args.args)
+            all_arguments.extend(getattr(statement.args, 'kwonlyargs', []))
+            all_arguments.extend(getattr(statement.args, 'posonlyargs', []))
 
-        for arg in all_arguments:
-            if isinstance(arg, ast.arg) and arg.arg in self.names:
-                yield self.error(
-                    arg,
-                    message=self.argument_msg,
-                    variable=arg.arg,
-                )
+            for arg in all_arguments:
+                if isinstance(arg, ast.arg) and arg.arg in self.names:
+                    yield self.error(
+                        arg,
+                        message=self.argument_msg,
+                        variable=arg.arg,
+                    )
+        else:
+            for arg in statement.args.args:
+                if isinstance(arg, ast.Name) and arg.id in self.names:
+                    yield self.error(arg, message=self.argument_msg, variable=arg.id)
 
     def check_for_loop(self, statement):
         stack = [statement.target]
@@ -170,7 +186,7 @@ class BuiltinsChecker:
                 stack.extend(list(item.elts))
             elif isinstance(item, ast.Name) and item.id in self.names:
                 yield self.error(statement, variable=item.id)
-            elif isinstance(item, ast.Starred):
+            elif PY3 and isinstance(item, ast.Starred):
                 if hasattr(item.value, 'id') and item.value.id in self.names:
                     yield self.error(
                         statement,
@@ -180,23 +196,33 @@ class BuiltinsChecker:
                     stack.extend(list(item.value.elts))
 
     def check_with(self, statement):
-        for item in statement.items:
-            var = item.optional_vars
+        if not PY3:
+            var = statement.optional_vars
             if isinstance(var, (ast.Tuple, ast.List)):
                 for element in var.elts:
                     if isinstance(element, ast.Name) and element.id in self.names:
                         yield self.error(statement, variable=element.id)
-                    elif (
-                        isinstance(element, ast.Starred)
-                        and element.value.id in self.names
-                    ):
-                        yield self.error(
-                            element,
-                            variable=element.value.id,
-                        )
 
             elif isinstance(var, ast.Name) and var.id in self.names:
                 yield self.error(statement, variable=var.id)
+        else:
+            for item in statement.items:
+                var = item.optional_vars
+                if isinstance(var, (ast.Tuple, ast.List)):
+                    for element in var.elts:
+                        if isinstance(element, ast.Name) and element.id in self.names:
+                            yield self.error(statement, variable=element.id)
+                        elif (
+                            isinstance(element, ast.Starred)
+                            and element.value.id in self.names
+                        ):
+                            yield self.error(
+                                element,
+                                variable=element.value.id,
+                            )
+
+                elif isinstance(var, ast.Name) and var.id in self.names:
+                    yield self.error(statement, variable=var.id)
 
     def check_exception(self, statement):
         exception_name = statement.name
