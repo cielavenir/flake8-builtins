@@ -56,6 +56,10 @@ def test_builtin_top_level():
     check_code(source, 'A001')
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 6),
+    reason='AnnAssign appeared in 3.6',
+)
 def test_ann_assign():
     source = 'list: int = 1'
     check_code(source, 'A001')
@@ -119,6 +123,10 @@ def test_assign_message():
     check_code(source, 'A001')
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 0),
+    reason='This syntax is only valid in Python 3.x',
+)
 def test_assignment_starred():
     source = 'bla, *int = range(4)'
     check_code(source, 'A001')
@@ -151,6 +159,10 @@ def test_keyword_argument_message():
     check_code(source, 'A002')
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 6),
+    reason='This syntax is only valid in Python 3.6+',
+)
 def test_kwonly_argument_message():
     source = """
     def bla(*, list):
@@ -258,6 +270,10 @@ def test_for_loop_nested_tuple():
     check_code(source, ['A001', 'A001'])
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 0),
+    reason='This syntax is only valid in Python 3.x',
+)
 def test_for_loop_starred():
     source = """
     for index, *int in enumerate([(1, "a"), (2, "b")]):
@@ -266,6 +282,10 @@ def test_for_loop_starred():
     check_code(source, 'A001')
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 0),
+    reason='This syntax is only valid in Python 3.x',
+)
 def test_for_loop_starred_no_error():
     source = """
     for index, *other in enumerate([(1, "a"), (2, "b")]):
@@ -283,30 +303,38 @@ def test_with_statement():
 
 
 def test_with_statement_no_error():
-    source = 'with open("bla.txt"): ...'
+    source = 'with open("bla.txt"): continue'
     check_code(source)
 
 
 def test_with_statement_multiple():
-    source = 'with open("bla.txt") as dir, open("bla.txt") as int: ...'
+    source = 'with open("bla.txt") as dir, open("bla.txt") as int: continue'
     check_code(source, ['A001', 'A001'])
 
 
 def test_with_statement_unpack():
-    source = 'with open("bla.txt") as (dir, bla): ...'
+    source = 'with open("bla.txt") as (dir, bla): continue'
     check_code(source, 'A001')
 
 
 def test_with_statement_unpack_on_list():
-    source = 'with open("bla.txt") as [dir, bla]: ...'
+    source = 'with open("bla.txt") as [dir, bla]: continue'
     check_code(source, 'A001')
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 0),
+    reason='This syntax is only valid in Python 3.x',
+)
 def test_with_statement_unpack_star():
     source = 'with open("bla.txt") as (bla, *int): ...'
     check_code(source, 'A001')
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 0),
+    reason='This syntax is only valid in Python 3.x',
+)
 def test_exception_py3():
     source = """
     try:
@@ -320,7 +348,7 @@ def test_exception_no_error():
     source = """
     try:
         a = 2
-    except Exception: ...
+    except Exception: pass
     """
     check_code(source)
 
@@ -391,20 +419,24 @@ def test_import_from_as_nothing():
 
 
 def test_class():
-    source = 'class int(object): ...'
+    source = 'class int(object): pass'
     check_code(source, 'A001')
 
 
 def test_class_nothing():
-    source = 'class integer(object): ...'
+    source = 'class integer(object): pass'
     check_code(source)
 
 
 def test_function():
-    source = 'def int(): ...'
+    source = 'def int(): pass'
     check_code(source, 'A001')
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 5),
+    reason='This syntax is only valid in Python 3.5',
+)
 def test_async_function():
     source = 'async def int(): ...'
     check_code(source, 'A001')
@@ -413,7 +445,7 @@ def test_async_function():
 def test_method():
     source = """
     class bla(object):
-        def int(): ...
+        def int(): pass
     """
     check_code(source, 'A003')
 
@@ -421,16 +453,20 @@ def test_method():
 def test_method_error_code():
     source = """
     class bla(object):
-        def int(): ...
+        def int(): pass
     """
     check_code(source, 'A003')
 
 
 def test_function_nothing():
-    source = 'def integer(): ...'
+    source = 'def integer(): pass'
     check_code(source)
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 5),
+    reason='This syntax is only valid in Python 3.x',
+)
 def test_async_for():
     source = """
     async def bla():
@@ -439,6 +475,10 @@ def test_async_for():
     check_code(source, 'A001')
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 5),
+    reason='This syntax is only valid in Python 3.x',
+)
 def test_async_for_nothing():
     source = """
     async def bla():
@@ -447,6 +487,10 @@ def test_async_for_nothing():
     check_code(source)
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 5),
+    reason='This syntax is only valid in Python 3.x',
+)
 def test_async_with():
     source = """
     async def bla():
@@ -455,6 +499,10 @@ def test_async_with():
     check_code(source, 'A001')
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 5),
+    reason='This syntax is only valid in Python 3.x',
+)
 def test_async_with_nothing():
     source = """
     async def bla():
@@ -473,6 +521,10 @@ def test_stdin(stdin_get_value):
     assert len(ret) == 1
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 5),
+    reason='This syntax is only valid in Python 3.x',
+)
 def test_tuple_unpacking():
     source = 'a, *(b, c) = 1, 2, 3'
     check_code(source)
