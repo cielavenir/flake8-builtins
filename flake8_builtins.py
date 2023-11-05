@@ -1,18 +1,15 @@
 # -*- coding: utf-8 -*-
+
+from flake8 import utils as stdin_utils
+
 import ast
 import inspect
 import sys
-
 
 if sys.version_info >= (3, 0):
     PY3 = True
 else:
     PY3 = False
-
-try:
-    from flake8.engine import pep8 as stdin_utils
-except ImportError:
-    from flake8 import utils as stdin_utils
 
 if sys.version_info >= (3, 6):
     AnnAssign = ast.AnnAssign
@@ -185,7 +182,7 @@ class BuiltinsChecker(object):
         else:
             for arg in statement.args.args:
                 if isinstance(arg, ast.Name) and arg.id in self.names:
-                    yield self.error(arg, message=self.argument_msg)
+                    yield self.error(arg, message=self.argument_msg, variable=arg.id)
 
     def check_for_loop(self, statement):
         stack = [statement.target]
@@ -278,26 +275,13 @@ class BuiltinsChecker(object):
         if statement.name in self.names:
             yield self.error(statement, variable=statement.name)
 
-    def error(
-        self,
-        statement,
-        message=None,
-        variable=None,
-        line=None,
-        column=None,
-    ):
+    def error(self, statement, variable, message=None):
         if not message:
             message = self.assign_msg
-        if not variable:
-            variable = statement.id
-        if not line:
-            line = statement.lineno
-        if not column:
-            column = statement.col_offset
 
         return (
-            line,
-            column,
+            statement.lineno,
+            statement.col_offset,
             message.format(variable),
             type(self),
         )
