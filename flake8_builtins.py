@@ -2,9 +2,9 @@ from flake8 import utils as stdin_utils
 
 import ast
 import inspect
-
 import sys
-if sys.version_info >= (3,0):
+
+if sys.version_info >= (3, 0):
     import builtins
     PY3 = True
 else:
@@ -21,7 +21,7 @@ if sys.version_info >= (3, 8):
 else:  # There was no walrus operator before python3.8
     NamedExpr = type('NamedExpr', (ast.AST,), {})
 
-class BuiltinsChecker:
+class BuiltinsChecker(object):
     name = 'flake8_builtins'
     version = '1.5.2'
     assign_msg = 'A001 variable "{0}" is shadowing a Python builtin'
@@ -226,11 +226,14 @@ class BuiltinsChecker:
 
     def check_exception(self, statement):
         exception_name = statement.name
-        if exception_name is None:
-            return
+        value = ''
+        if isinstance(exception_name, ast.Name):
+            value = exception_name.id
+        elif isinstance(exception_name, str):  # Python +3.x
+            value = exception_name
 
-        if exception_name in self.names:
-            yield self.error(statement, variable=exception_name)
+        if value in self.names:
+            yield self.error(statement, variable=value)
 
     def check_comprehension(self, statement):
         for generator in statement.generators:

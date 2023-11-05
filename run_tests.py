@@ -331,15 +331,11 @@ def test_with_statement_unpack_star():
     check_code(source, 'A001')
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 0),
-    reason='This syntax is only valid in Python 3.x',
-)
 def test_exception_py3():
     source = """
     try:
         a = 2
-    except Exception as int: ...
+    except Exception as int: pass
     """
     check_code(source, 'A001')
 
