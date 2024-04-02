@@ -14,15 +14,25 @@ import textwrap
 class FakeOptions:
     builtins_ignorelist = []
     builtins = None
+    builtins_allowed_modules = None
 
-    def __init__(self, ignore_list='', builtins=None):
+    def __init__(self, ignore_list='', builtins=None, builtins_allowed_modules=None):
         if ignore_list:
             self.builtins_ignorelist = ignore_list
         if builtins:
             self.builtins = builtins
+        if builtins_allowed_modules:
+            self.builtins_allowed_modules = builtins_allowed_modules
 
 
-def check_code(source, expected_codes=None, ignore_list=None, builtins=None):
+def check_code(
+    source,
+    expected_codes=None,
+    ignore_list=None,
+    builtins=None,
+    builtins_allowed_modules=None,
+    filename='/home/script.py',
+):
     """Check if the given source code generates the given flake8 errors
 
     If `expected_codes` is a string is converted to a list,
@@ -41,8 +51,14 @@ def check_code(source, expected_codes=None, ignore_list=None, builtins=None):
     if ignore_list is None:
         ignore_list = []
     tree = ast.parse(textwrap.dedent(source))
-    checker = BuiltinsChecker(tree, '/home/script.py')
-    checker.parse_options(FakeOptions(ignore_list=ignore_list, builtins=builtins))
+    checker = BuiltinsChecker(tree, filename)
+    checker.parse_options(
+        FakeOptions(
+            ignore_list=ignore_list,
+            builtins=builtins,
+            builtins_allowed_modules=builtins_allowed_modules,
+        )
+    )
     return_statements = list(checker.run())
 
     assert len(return_statements) == len(expected_codes)
@@ -154,7 +170,7 @@ def test_argument_message():
 
 def test_lambda_argument_message():
     source = 'takefirst = lambda list: list[0]'
-    check_code(source, 'A005')
+    check_code(source, 'A006')
 
 
 def test_keyword_argument_message():
@@ -187,6 +203,7 @@ def test_posonly_argument_message():
     """
     check_code(source, 'A002')
 
+
 @pytest.mark.skipif(
     sys.version_info < (3, 8),
     reason='This syntax is only valid in Python 3.8+',
@@ -195,7 +212,8 @@ def test_lambda_posonly_argument_message():
     source = """
     takefirst = lambda list, /: list[0]
     """
-    check_code(source, 'A005')
+    check_code(source, 'A006')
+
 
 def test_no_error():
     source = """def bla(first):\n    b = 4"""
@@ -525,10 +543,7 @@ def test_async_with_nothing():
 def test_stdin(stdin_get_value):
     source = 'max = 4'
     stdin_get_value.return_value = source
-    checker = BuiltinsChecker('', 'stdin')
-    checker.parse_options(FakeOptions())
-    ret = list(checker.run())
-    assert len(ret) == 1
+    check_code('', expected_codes='A001', filename='stdin')
 
 
 @pytest.mark.skipif(
@@ -538,3 +553,30 @@ def test_stdin(stdin_get_value):
 def test_tuple_unpacking():
     source = 'a, *(b, c) = 1, 2, 3'
     check_code(source)
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 10),
+    reason='Skip A005, module testing is only supported in Python 3.10 and above',
+)
+def test_module_name():
+    source = ''
+    check_code(source, expected_codes='A005', filename='./temp/logging.py')
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 10),
+    reason='Skip A005, module testing is only supported in Python 3.10 and above',
+)
+def test_module_name_ignore_module():
+    source = ''
+    check_code(
+        source,
+        filename='./temp/logging.py',
+        builtins_allowed_modules=['logging'],
+    )
+
+
+def test_module_name_not_builtin():
+    source = ''
+    check_code(source, filename='log_config')
