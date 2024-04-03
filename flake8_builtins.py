@@ -1,5 +1,10 @@
 from flake8 import utils as stdin_utils
 
+try:
+    from pathlib import Path
+except ImportError:
+    from pathlib2 import Path
+
 import ast
 import inspect
 import sys
@@ -28,6 +33,8 @@ class BuiltinsChecker(object):
     argument_msg = 'A002 argument "{0}" is shadowing a Python builtin'
     class_attribute_msg = 'A003 class attribute "{0}" is shadowing a Python builtin'
     import_msg = 'A004 import statement "{0}" is shadowing a Python builtin'
+    module_name_msg = 'A005 the module is shadowing a Python builtin module "{0}"'
+    lambda_argument_msg = 'A006 lambda argument "{0}" is shadowing a Python builtin'
 
     names = []
     ignore_list = {
@@ -36,6 +43,7 @@ class BuiltinsChecker(object):
         'credits',
         '_',
     }
+    ignored_module_names = set()
 
     def __init__(self, tree, filename):
         self.tree = tree
@@ -50,6 +58,13 @@ class BuiltinsChecker(object):
             comma_separated_list=True,
             help='A comma separated list of builtins to skip checking',
         )
+        option_manager.add_option(
+            '--builtins-allowed-modules',
+            metavar='builtins',
+            parse_from_config=True,
+            comma_separated_list=True,
+            help='A comma separated list of builtin module names to allow',
+        )
 
     @classmethod
     def parse_options(cls, options):
@@ -63,12 +78,27 @@ class BuiltinsChecker(object):
         if flake8_builtins:
             cls.names.update(flake8_builtins)
 
+        if options.builtins_allowed_modules is not None:
+            cls.ignored_module_names.update(options.builtins_allowed_modules)
+
+        if hasattr(sys, 'stdlib_module_names'):
+            # stdlib_module_names is only available in Python 3.10+
+            known_module_names = sys.stdlib_module_names
+            cls.module_names = {
+                m for m in known_module_names if m not in cls.ignored_module_names
+            }
+        else:
+            cls.module_names = set()
+
     def run(self):
         tree = self.tree
 
         if self.filename == 'stdin':
             lines = stdin_utils.stdin_get_value()
             tree = ast.parse(lines)
+        else:
+            for err in self.check_module_name(self.filename):
+                yield err
 
         for statement in ast.walk(tree):
             for child in ast.iter_child_nodes(statement):
@@ -103,6 +133,9 @@ class BuiltinsChecker(object):
 
             elif isinstance(statement, function_nodes):
                 value = self.check_function_definition(statement)
+
+            elif isinstance(statement, ast.Lambda):
+                value = self.check_lambda_definition(statement)
 
             elif isinstance(statement, for_nodes):
                 value = self.check_for_loop(statement)
@@ -177,6 +210,25 @@ class BuiltinsChecker(object):
             for arg in statement.args.args:
                 if isinstance(arg, ast.Name) and arg.id in self.names:
                     yield self.error(arg, message=self.argument_msg, variable=arg.id)
+
+    def check_lambda_definition(self, statement):
+        if PY3:
+            all_arguments = []
+            all_arguments.extend(statement.args.args)
+            all_arguments.extend(getattr(statement.args, 'kwonlyargs', []))
+            all_arguments.extend(getattr(statement.args, 'posonlyargs', []))
+
+            for arg in all_arguments:
+                if isinstance(arg, ast.arg) and arg.arg in self.names:
+                    yield self.error(
+                        arg,
+                        message=self.lambda_argument_msg,
+                        variable=arg.arg,
+                    )
+        else:
+            for arg in statement.args.args:
+                if isinstance(arg, ast.Name) and arg.id in self.names:
+                    yield self.error(arg, message=self.lambda_argument_msg, variable=arg.id)
 
     def check_for_loop(self, statement):
         stack = [statement.target]
@@ -269,13 +321,26 @@ class BuiltinsChecker(object):
         if statement.name in self.names:
             yield self.error(statement, variable=statement.name)
 
-    def error(self, statement, variable, message=None):
+    def error(self, statement=None, variable=None, message=None):
         if not message:
             message = self.assign_msg
 
+        # lineno and col_offset must be integers
         return (
-            statement.lineno,
-            statement.col_offset,
+            statement.lineno if statement else 0,
+            statement.col_offset if statement else 0,
             message.format(variable),
             type(self),
         )
+
+    def check_module_name(self, filename):
+        if not self.module_names:
+            return
+        path = Path(filename)
+        module_name = path.name.removesuffix('.py')
+        if module_name in self.module_names:
+            yield self.error(
+                None,
+                module_name,
+                message=self.module_name_msg,
+            )

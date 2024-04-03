@@ -71,11 +71,19 @@ Install
 -------
 Install with pip::
 
-    $ pip install flake8-builtins
+    $ python -m pip install flake8-builtins
+
+Options
+-------
+
+One can use `--builtins-ignorelist` option, or configuration option,
+to ignore a custom list of builtins::
+
+    $ flake8 --builtins-ignorelist id,copyright *.py
 
 Requirements
 ------------
-- Python 2.7, 3.6, 3.7, 3.8, 3.9
+- Python 2.7, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12, and pypy3
 - flake8
 
 Rules
@@ -92,6 +100,12 @@ A003:
 
 A004:
   An import statement is shadowing a Python builtin.
+
+A005:
+  A module is shadowing a Python builtin module (e.g: `logging` or `socket`)
+
+A006:
+  A lambda argument is shadowing a Python builtin.
 
 License
 -------
